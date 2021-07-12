@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--epochs', default = 40, type = int,
                         help = "The total training epochs")
 
-    parser.add_argument('--batchsize', default = 4, type = int,
+    parser.add_argument('--batchsize', default = 8, type = int,
                         help = "The training batchsize")
 
     parser.add_argument('--lr', default = 2e-4, type = float,
@@ -79,7 +79,6 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
         accumulate_Discr_B_loss += loss_Discr_B_data
         total_Discr_loss.backward()
         optimizer_Discr.step()
-        break
 
     print('avg_GAN_loss: {:.4f} avg_GAN_A2B_loss: {:.4f} avg_GAN_B2A_loss: {:.4f} avg_CC_A_loss: {:.4f} avg_CC_B_loss: {:.4f}'.format(accumulate_GAN_loss / dataloader_len, 
         loss_GAN_A2B_data / dataloader_len, accumulate_GAN_B2A_loss / dataloader_len, accumulate_CC_A_loss / dataloader_len, accumulate_CC_B_loss / dataloader_len))
