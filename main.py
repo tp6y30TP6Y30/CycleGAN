@@ -26,10 +26,10 @@ def parse_args():
     parser.add_argument('--pred-path', type = str, default = './predictions',
                         help = "The generated img directory")
 
-    parser.add_argument('--epochs', default = 40, type = int,
+    parser.add_argument('--epochs', default = 200, type = int,
                         help = "The total training epochs")
 
-    parser.add_argument('--batchsize', default = 8, type = int,
+    parser.add_argument('--batchsize', default = 10, type = int,
                         help = "The training batchsize")
 
     parser.add_argument('--lr', default = 2e-4, type = float,
@@ -95,6 +95,7 @@ def test(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, device, args, epoch, epoc
             save_fake_images(fake_img_A, 'fake_A' + str(iter_) + '.jpg', args.pred_path, args.query, epoch)
             save_fake_images(fake_img_B, 'fake_B' + str(iter_) + '.jpg', args.pred_path, args.query, epoch)
             iter_ += 1
+        print()
 
 def save_fake_images(fake_images, filename, pred_path, query, epoch):
     save_path = join(pred_path, query, ('epoch_' + str(epoch)))
@@ -113,8 +114,8 @@ def main():
 
     test_dataset_A = CycleGANData(args.query, 'test', 'A')
     test_dataset_B = CycleGANData(args.query, 'test', 'B')
-    test_dataloader_A = DataLoader(test_dataset_A, batch_size = args.batchsize, shuffle = False, num_workers = 4, pin_memory = True, drop_last = True)
-    test_dataloader_B = DataLoader(test_dataset_B, batch_size = args.batchsize, shuffle = False, num_workers = 4, pin_memory = True, drop_last = True)
+    test_dataloader_A = DataLoader(test_dataset_A, batch_size = 1, shuffle = False, num_workers = 4, pin_memory = True, drop_last = True)
+    test_dataloader_B = DataLoader(test_dataset_B, batch_size = 1, shuffle = False, num_workers = 4, pin_memory = True, drop_last = True)
 
     # build model
     GAN_A2B = GANetwork().to(device).float()
