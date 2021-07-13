@@ -52,12 +52,14 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
         optimizer_GAN.zero_grad()
         fake_img_B = GAN_A2B(img_A)
         fake_img_A = GAN_B2A(img_B)
+        pred_real_img_B = Discr_B(img_B)
+        pred_real_img_A = Discr_A(img_A)
         pred_fake_img_B = Discr_B(fake_img_B)
         pred_fake_img_A = Discr_A(fake_img_A)
         A2B2A = GAN_B2A(GAN_A2B(img_A))
         B2A2B = GAN_A2B(GAN_B2A(img_B))
         total_GAN_loss, loss_GAN_A2B_data, loss_GAN_B2A_data, loss_CC_A_data, loss_CC_B_data = criterion('GAN', img_A = img_A, img_B = img_B, 
-            label_A = label_A, label_B = label_B, pred_fake_img_A = pred_fake_img_A, pred_real_img_A = None, pred_fake_img_B = pred_fake_img_B, pred_real_img_B = None, A2B2A = A2B2A, B2A2B = B2A2B)
+            label_A = label_A, label_B = label_B, pred_fake_img_A = pred_fake_img_A, pred_real_img_A = pred_real_img_A, pred_fake_img_B = pred_fake_img_B, pred_real_img_B = pred_real_img_B, A2B2A = A2B2A, B2A2B = B2A2B)
         accumulate_GAN_loss += total_GAN_loss.item()
         accumulate_GAN_A2B_loss += loss_GAN_A2B_data
         accumulate_GAN_B2A_loss += loss_GAN_B2A_data
@@ -123,8 +125,8 @@ def main():
     GAN_B2A = GANetwork().to(device).float()
     Discr_A = Discriminator().to(device).float()
     Discr_B = Discriminator().to(device).float()
-    optimizer_GAN = AdaBelief(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
-    optimizer_Discr = AdaBelief(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
+    optimizer_GAN = torch.optim.Adam(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999))
+    optimizer_Discr = torch.optim.Adam(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999))
     criterion = CycleGANLoss().to(device).float()
 
     # train
