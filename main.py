@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--epochs', default = 200, type = int,
                         help = "The total training epochs")
 
-    parser.add_argument('--batchsize', default = 1, type = int,
+    parser.add_argument('--batchsize', default = 8, type = int,
                         help = "The training batchsize")
 
     parser.add_argument('--lr', default = 2e-4, type = float,
@@ -64,10 +64,10 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
 
         B2A2B = GAN_A2B(GAN_B2A(img_B))
         A2B2A = GAN_B2A(GAN_A2B(img_A))
-        imgs = torch.cat([img_B, img_A], dim = 0)
         fake_imgs = torch.cat([B2A2B, A2B2A], dim = 0)
+        imgs = torch.cat([img_B, img_A], dim = 0)
 
-        total_GAN_loss, GAN_loss_data, CC_loss_data = criterion('GAN', pred_imgs = pred_imgs, labels = fake_labels, imgs = imgs, fake_imgs = fake_imgs)
+        total_GAN_loss, GAN_loss_data, CC_loss_data = criterion('GAN', pred_imgs = pred_imgs, labels = fake_labels, fake_imgs = fake_imgs, imgs = imgs)
         accumulate_total_GAN_loss += total_GAN_loss.item()
         accumulate_GAN_loss += GAN_loss_data
         accumulate_CC_loss += CC_loss_data
@@ -87,7 +87,7 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
         pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0).squeeze(-1)
         labels = torch.cat([label_A, label_B, label_B, label_A], dim = 0)
 
-        total_Discr_loss = criterion('Discr', pred_imgs = pred_imgs, labels = labels, imgs = None, fake_imgs = None)
+        total_Discr_loss = criterion('Discr', pred_imgs = pred_imgs, labels = labels, fake_imgs = None, imgs = None)
         accumulate_total_Discr_loss += total_Discr_loss.item()
         total_Discr_loss.backward()
         optimizer_Discr.step()

@@ -8,10 +8,10 @@ class CycleGANLoss(nn.Module):
 		self.CLS_loss = nn.BCEWithLogitsLoss(reduction = 'mean')
 		self.lambda_ = 10.
 		
-	def forward(self, mode, pred_imgs, labels, imgs, fake_imgs):
+	def forward(self, mode, pred_imgs, labels, fake_imgs, imgs):
 		if mode == 'GAN':
 			GAN_loss = self.CLS_loss(pred_imgs, labels)
-			CC_loss = self.lambda_ * self.L1Loss(imgs, fake_imgs)
+			CC_loss = self.lambda_ * self.L1Loss(fake_imgs, imgs)
 			total_GAN_loss = GAN_loss + CC_loss
 			return total_GAN_loss, GAN_loss.item(), CC_loss.item()
 

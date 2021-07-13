@@ -67,11 +67,11 @@ class Classifier(nn.Module):
         return self.classify(feature)
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels = 3, num_stages = 5):
+    def __init__(self, in_channels = 3, num_stages = 3):
         super(Discriminator, self).__init__()
         channels = [in_channels, *[64 * 2**stage for stage in range(num_stages)]]
         self.encoder = Encoder(channels)
-        self.classifier = Classifier(in_channels = 1024, out_channels = 1)
+        self.classifier = Classifier(in_channels = 2**(num_stages + 5), out_channels = 1)
 
     def forward(self, x):
         feature = self.encoder(x)
