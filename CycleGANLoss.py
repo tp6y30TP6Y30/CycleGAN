@@ -5,7 +5,7 @@ class CycleGANLoss(nn.Module):
 	def __init__(self):
 		super(CycleGANLoss, self).__init__()
 		self.L1Loss = nn.L1Loss(reduction = 'mean')
-		self.CLS_loss = nn.BCEWithLogitsLoss(reduction = 'mean')
+		self.CLS_loss = nn.CrossEntropyLoss(reduction = 'mean')
 		self.lambda_ = 10.
 		
 	def forward(self, mode, pred_imgs, labels, fake_imgs, imgs):

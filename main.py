@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--epochs', default = 200, type = int,
                         help = "The total training epochs")
 
-    parser.add_argument('--batchsize', default = 8, type = int,
+    parser.add_argument('--batchsize', default = 1, type = int,
                         help = "The training batchsize")
 
     parser.add_argument('--lr', default = 2e-4, type = float,
@@ -59,7 +59,7 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
         pred_imgs_B = Discr_B(imgs_B)
         pred_imgs_A = Discr_A(imgs_A)
 
-        pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0).squeeze(-1)
+        pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0)
         fake_labels = torch.cat([label_B, label_A, label_A, label_B], dim = 0)
 
         B2A2B = GAN_A2B(GAN_B2A(img_B))
@@ -84,7 +84,7 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
         pred_imgs_B = Discr_B(imgs_B)
         pred_imgs_A = Discr_A(imgs_A)
 
-        pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0).squeeze(-1)
+        pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0)
         labels = torch.cat([label_A, label_B, label_B, label_A], dim = 0)
 
         total_Discr_loss = criterion('Discr', pred_imgs = pred_imgs, labels = labels, fake_imgs = None, imgs = None)

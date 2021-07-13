@@ -20,29 +20,26 @@ class SEModule(nn.Module):
         return original * x
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size = 3, stride = 2, padding = 1, activation = 'leakyrelu'):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, activation = 'leakyrelu', downsample = False):
         super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2)
         self.norm = nn.InstanceNorm2d(out_channels)
         self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
-        self.redu = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.attn = SEModule(out_channels, 4)
+        self.downsample = nn.MaxPool2d(2) if downsample else nn.Identity()
 
     def forward(self, x):
         residual = x
         x = self.conv(x)
         x = self.norm(x)
         x = self.acti(x)
-        x = self.attn(x)
-        residual = self.redu(residual)
-        x = residual + x
+        x = self.downsample(x)
         return x
 
 class Encoder(nn.Module):
     def __init__(self, channels):
         super(Encoder, self).__init__()
         self.convs = nn.ModuleList([
-                        ConvBlock(channels[i], channels[i + 1])
+                        ConvBlock(channels[i], channels[i + 1], 3, 1, 1, downsample = True)
                         for i in range(len(channels) - 1)
                      ])
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -67,19 +64,30 @@ class Classifier(nn.Module):
         return self.classify(feature)
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels = 3, num_stages = 3):
+    def __init__(self, in_channels = 3):
         super(Discriminator, self).__init__()
-        channels = [in_channels, *[64 * 2**stage for stage in range(num_stages)]]
+        channels = [64, 128, 128, 256, 256, 512]
+        self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
         self.encoder = Encoder(channels)
-        self.classifier = Classifier(in_channels = 2**(num_stages + 5), out_channels = 1)
+        self.classifier = Classifier(in_channels = channels[-1], out_channels = 2)
+        weights_init(self)
 
-    def forward(self, x):
+    def forward(self, input):
+        x = self.stem_conv(input)
         feature = self.encoder(x)
         predict = self.classifier(feature)
         return predict
 
     def get_params(self):
         return sum(p.numel() for p in self.parameters())
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('InstancehNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
 
 if __name__ == '__main__':
     input = torch.rand([2, 3, 256, 256])

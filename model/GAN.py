@@ -1,6 +1,25 @@
 import torch
 import torch.nn as nn
 
+class SpatialPyramidPooling(nn.Module):
+    def __init__(self, channels, pool_sizes = [3, 5, 9]):
+        super(SpatialPyramidPooling, self).__init__()
+
+        self.head_conv = nn.Sequential(
+                            Conv_block(channels, channels // 2, 1, 1, 0),
+                            Conv_block(channels // 2, channels, 3, 1, 0),
+                            Conv_block(channels, channels // 2, 1, 1, 0),
+                         )
+        self.maxpools = nn.ModuleList([nn.MaxPool2d(pool_size, 1, pool_size//2) for pool_size in pool_sizes])
+        self.__initialize_weights()
+
+    def forward(self, x):
+        x = self.head_conv(x)
+        features = [maxpool(x) for maxpool in self.maxpools]
+        features = torch.cat([x] + features, dim = 1)
+
+        return features
+
 class SEModule(nn.Module):
     def __init__(self, channels, reduction=1):
         super(SEModule, self).__init__()
@@ -20,29 +39,26 @@ class SEModule(nn.Module):
         return original * x
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size = 3, stride = 2, padding = 1, activation = 'leakyrelu'):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, activation = 'leakyrelu', downsample = False):
         super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2)
         self.norm = nn.InstanceNorm2d(out_channels)
         self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
-        self.redu = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.attn = SEModule(out_channels, 4)
+        self.downsample = nn.MaxPool2d(2) if downsample else nn.Identity()
 
     def forward(self, x):
         residual = x
         x = self.conv(x)
         x = self.norm(x)
         x = self.acti(x)
-        x = self.attn(x)
-        residual = self.redu(residual)
-        x = residual + x
+        x = self.downsample(x)
         return x
 
 class Encoder(nn.Module):
     def __init__(self, channels):
         super(Encoder, self).__init__()
         self.convs = nn.ModuleList([
-                        ConvBlock(channels[i], channels[i + 1])
+                        ConvBlock(channels[i], channels[i + 1], 3, 1, 1, downsample = True)
                         for i in range(len(channels) - 1)
                      ])
 
@@ -54,7 +70,7 @@ class Encoder(nn.Module):
         return features
 
 class TransBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size = 3, stride = 2, padding = 1):
+    def __init__(self, in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
         super(TransBlock, self).__init__()
         self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
         self.norm = nn.InstanceNorm2d(out_channels)
@@ -75,8 +91,10 @@ class Decoder(nn.Module):
                             for i in range(len(channels) - 1)
                        ])
         self.cat_convs = nn.ModuleList([
-                            ConvBlock(channels[i], channels[i] // 2, 1, 1, 0, activation = 'relu')
-                            for i in range(len(channels) - 2)
+                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
+                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
+                            ConvBlock(256, 128, 1, 1, 0, activation = 'relu'),
+                            ConvBlock(256, 128, 1, 1, 0, activation = 'relu')
                         ])
 
     def get_upsample_block(self, in_channels, out_channels):
@@ -101,20 +119,33 @@ class Decoder(nn.Module):
         return output
 
 class GANetwork(nn.Module):
-    def __init__(self, in_channels = 3, num_stages = 5):
+    def __init__(self, in_channels = 3):
         super(GANetwork, self).__init__()
-        channels = [in_channels, *[64 * 2**stage for stage in range(num_stages)]]
+        channels = [64, 128, 128, 256, 256, 512]
+        self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
         self.encoder = Encoder(channels)
         self.decoder = Decoder(channels[::-1])
+        self.root_conv = ConvBlock(channels[::-1][-1], in_channels, 3, 1, 1)
+        weights_init(self)
 
     def forward(self, input):
-        features = self.encoder(input)
-        fake_img = self.decoder(features[::-1])
+        x = self.stem_conv(input)
+        features = self.encoder(x)
+        features = self.decoder(features[::-1])
+        fake_img = self.root_conv(features)
         assert(input.shape == fake_img.shape)
         return fake_img
 
     def get_params(self):
         return sum(p.numel() for p in self.parameters())
+
+def weights_init(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv') != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find('InstancehNorm') != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
 
 if __name__ == '__main__':
     input = torch.rand([2, 3, 256, 256])
