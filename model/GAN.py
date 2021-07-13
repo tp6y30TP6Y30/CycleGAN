@@ -39,17 +39,23 @@ class SEModule(nn.Module):
         return original * x
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, activation = 'leakyrelu', downsample = False):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, activation = 'leakyrelu', downsample = False, attention = False):
         super(ConvBlock, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2)
         self.norm = nn.InstanceNorm2d(out_channels)
         self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
         self.downsample = nn.MaxPool2d(2) if downsample else nn.Identity()
+        self.attention = attention
+        if self.attention:
+            self.attn = SEModule(out_channels, 4)
 
     def forward(self, x):
+        residual = x
         x = self.conv(x)
         x = self.norm(x)
         x = self.acti(x)
+        if self.attention:
+            x = residual + self.attn(x)
         x = self.downsample(x)
         return x
 
@@ -57,7 +63,7 @@ class Encoder(nn.Module):
     def __init__(self, channels):
         super(Encoder, self).__init__()
         self.convs = nn.ModuleList([
-                        ConvBlock(channels[i], channels[i + 1], 3, 1, 1, downsample = True)
+                        ConvBlock(channels[i], channels[i + 1], 3, 1, 1, downsample = True, attention = channels[i] == channels[i + 1])
                         for i in range(len(channels) - 1)
                      ])
 
@@ -100,9 +106,7 @@ class Decoder(nn.Module):
         if self.up_mode == 'up_sample':
             upsample_block = nn.Sequential(
                                 nn.Upsample(scale_factor = 2),
-                                nn.Conv2d(in_channels, out_channels, 3, 1, 1),
-                                nn.InstanceNorm2d(out_channels),
-                                nn.ReLU(True)
+                                ConvBlock(in_channels, out_channels, 3, 1, 1, activation = 'relu', downsample = False, attention = in_channels == out_channels)
                              )
         elif self.up_mode == 'transpose':
             upsample_block = TransBlock(in_channels, out_channels)
@@ -124,14 +128,15 @@ class GANetwork(nn.Module):
         self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
         self.encoder = Encoder(channels)
         self.decoder = Decoder(channels[::-1])
-        self.root_conv = ConvBlock(channels[::-1][-1], in_channels, 3, 1, 1)
+        self.leaf_conv = nn.Conv2d(channels[::-1][-1], in_channels, 3, 1, 1)
         weights_init(self)
+        print('GAN params: ', self.get_params())
 
     def forward(self, input):
         x = self.stem_conv(input)
         features = self.encoder(x)
         features = self.decoder(features[::-1])
-        fake_img = self.root_conv(features)
+        fake_img = self.leaf_conv(features)
         assert(input.shape == fake_img.shape)
         return fake_img
 

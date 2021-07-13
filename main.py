@@ -104,8 +104,8 @@ def test(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, device, args, epoch, epoc
             img_A, label_A, img_B, label_B = img_A.to(device), label_A.to(device), img_B.to(device), label_B.to(device)
             fake_img_B = GAN_A2B(img_A)
             fake_img_A = GAN_B2A(img_B)
-            save_fake_images(fake_img_A, 'fake_A' + str(iter_) + '.jpg', args.pred_path, args.query, epoch)
-            save_fake_images(fake_img_B, 'fake_B' + str(iter_) + '.jpg', args.pred_path, args.query, epoch)
+            save_fake_images(torch.cat([img_B, fake_img_A], dim = 0), 'fake_A' + str(iter_) + '.jpg', args.pred_path, args.query, epoch)
+            save_fake_images(torch.cat([img_A, fake_img_B], dim = 0), 'fake_B' + str(iter_) + '.jpg', args.pred_path, args.query, epoch)
             iter_ += 1
         print()
 
