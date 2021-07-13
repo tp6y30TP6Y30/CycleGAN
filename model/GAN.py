@@ -101,7 +101,7 @@ class Decoder(nn.Module):
         return output
 
 class GANetwork(nn.Module):
-    def __init__(self, in_channels = 3, num_stages = 6):
+    def __init__(self, in_channels = 3, num_stages = 5):
         super(GANetwork, self).__init__()
         channels = [in_channels, *[64 * 2**stage for stage in range(num_stages)]]
         self.encoder = Encoder(channels)

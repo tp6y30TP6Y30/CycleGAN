@@ -10,8 +10,8 @@ class CycleGANLoss(nn.Module):
 		
 	def forward(self, mode, img_A, img_B, label_A, label_B, pred_fake_img_A, pred_real_img_A, pred_fake_img_B, pred_real_img_B, A2B2A, B2A2B):
 		if mode == 'GAN':
-			loss_GAN_A2B = self.CLS_loss(pred_fake_img_A, label_A)
-			loss_GAN_B2A = self.CLS_loss(pred_fake_img_B, label_B)
+			loss_GAN_B2A = self.CLS_loss(pred_fake_img_A, label_A) + self.CLS_loss(pred_real_img_A, label_B)
+			loss_GAN_A2B = self.CLS_loss(pred_fake_img_B, label_B) + self.CLS_loss(pred_real_img_B, label_A)
 			loss_CC_A = self.L1Loss(A2B2A, img_A)
 			loss_CC_B = self.L1Loss(B2A2B, img_B)
 			total_GAN_loss = loss_GAN_A2B + loss_GAN_B2A + self.lambda_ * (loss_CC_A + loss_CC_B)
