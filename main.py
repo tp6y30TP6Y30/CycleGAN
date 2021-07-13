@@ -44,48 +44,57 @@ def parse_args():
 
 def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device, optimizer_GAN, optimizer_Discr, criterion, args, epoch, epochs):
     GAN_A2B.train(), GAN_B2A.train(), Discr_A.train(), Discr_B.train()
-    accumulate_GAN_loss, accumulate_GAN_A2B_loss, accumulate_GAN_B2A_loss, accumulate_CC_A_loss, accumulate_CC_B_loss = 0, 0, 0, 0, 0
-    accumulate_Discr_loss, accumulate_Discr_A_loss, accumulate_Discr_B_loss = 0, 0, 0
+    accumulate_total_GAN_loss, accumulate_GAN_loss, accumulate_CC_loss, accumulate_total_Discr_loss = 0, 0, 0, 0
     dataloader_len = min(len(dataloader_A), len(dataloader_B))
     for (img_A, label_A), (img_B, label_B) in tqdm(zip(dataloader_A, dataloader_B), total = dataloader_len, ncols = 80, desc = '[Train] {:d}/{:d}'.format(epoch, epochs)):
         img_A, label_A, img_B, label_B = img_A.to(device), label_A.to(device), img_B.to(device), label_B.to(device)
+
         optimizer_GAN.zero_grad()
         fake_img_B = GAN_A2B(img_A)
         fake_img_A = GAN_B2A(img_B)
-        pred_real_img_B = Discr_B(img_B)
-        pred_real_img_A = Discr_A(img_A)
-        pred_fake_img_B = Discr_B(fake_img_B)
-        pred_fake_img_A = Discr_A(fake_img_A)
-        A2B2A = GAN_B2A(GAN_A2B(img_A))
+
+        imgs_B = torch.cat([fake_img_B, img_B], dim = 0)
+        imgs_A = torch.cat([fake_img_A, img_A], dim = 0)
+
+        pred_imgs_B = Discr_B(imgs_B)
+        pred_imgs_A = Discr_A(imgs_A)
+
+        pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0).squeeze(-1)
+        fake_labels = torch.cat([label_B, label_A, label_A, label_B], dim = 0)
+
         B2A2B = GAN_A2B(GAN_B2A(img_B))
-        total_GAN_loss, loss_GAN_A2B_data, loss_GAN_B2A_data, loss_CC_A_data, loss_CC_B_data = criterion('GAN', img_A = img_A, img_B = img_B, 
-            label_A = label_A, label_B = label_B, pred_fake_img_A = pred_fake_img_A, pred_real_img_A = pred_real_img_A, pred_fake_img_B = pred_fake_img_B, pred_real_img_B = pred_real_img_B, A2B2A = A2B2A, B2A2B = B2A2B)
-        accumulate_GAN_loss += total_GAN_loss.item()
-        accumulate_GAN_A2B_loss += loss_GAN_A2B_data
-        accumulate_GAN_B2A_loss += loss_GAN_B2A_data
-        accumulate_CC_A_loss += loss_CC_A_data
-        accumulate_CC_B_loss += loss_CC_B_data
+        A2B2A = GAN_B2A(GAN_A2B(img_A))
+        imgs = torch.cat([img_B, img_A], dim = 0)
+        fake_imgs = torch.cat([B2A2B, A2B2A], dim = 0)
+
+        total_GAN_loss, GAN_loss_data, CC_loss_data = criterion('GAN', pred_imgs = pred_imgs, labels = fake_labels, imgs = imgs, fake_imgs = fake_imgs)
+        accumulate_total_GAN_loss += total_GAN_loss.item()
+        accumulate_GAN_loss += GAN_loss_data
+        accumulate_CC_loss += CC_loss_data
         total_GAN_loss.backward()
         optimizer_GAN.step()
 
         optimizer_Discr.zero_grad()
         fake_img_B = GAN_A2B(img_A)
         fake_img_A = GAN_B2A(img_B)
-        pred_real_img_B = Discr_B(img_B)
-        pred_real_img_A = Discr_A(img_A)
-        pred_fake_img_B = Discr_B(fake_img_B)
-        pred_fake_img_A = Discr_A(fake_img_A)
-        total_Discr_loss, loss_Discr_A_data, loss_Discr_B_data = criterion('Discr', img_A = None, img_B = None, label_A = label_A, label_B = label_B, 
-            pred_fake_img_A = pred_fake_img_A, pred_real_img_A = pred_real_img_A, pred_fake_img_B = pred_fake_img_B, pred_real_img_B = pred_real_img_B, A2B2A = None, B2A2B = None)
-        accumulate_Discr_loss += total_Discr_loss.item()
-        accumulate_Discr_A_loss += loss_Discr_A_data
-        accumulate_Discr_B_loss += loss_Discr_B_data
+
+        imgs_B = torch.cat([fake_img_B, img_B], dim = 0)
+        imgs_A = torch.cat([fake_img_A, img_A], dim = 0)
+
+        pred_imgs_B = Discr_B(imgs_B)
+        pred_imgs_A = Discr_A(imgs_A)
+
+        pred_imgs = torch.cat([pred_imgs_B, pred_imgs_A], dim = 0).squeeze(-1)
+        labels = torch.cat([label_A, label_B, label_B, label_A], dim = 0)
+
+        total_Discr_loss = criterion('Discr', pred_imgs = pred_imgs, labels = labels, imgs = None, fake_imgs = None)
+        accumulate_total_Discr_loss += total_Discr_loss.item()
         total_Discr_loss.backward()
         optimizer_Discr.step()
 
-    print('avg_GAN_loss: {:.4f} avg_GAN_A2B_loss: {:.4f} avg_GAN_B2A_loss: {:.4f} avg_CC_A_loss: {:.4f} avg_CC_B_loss: {:.4f}'.format(accumulate_GAN_loss / dataloader_len, 
-        accumulate_GAN_A2B_loss / dataloader_len, accumulate_GAN_B2A_loss / dataloader_len, accumulate_CC_A_loss / dataloader_len, accumulate_CC_B_loss / dataloader_len))
-    print('avg_Discr_loss: {:.4f} avg_Discr_A_loss: {:.4f} avg_Discr_B_loss: {:.4f}'.format(accumulate_Discr_loss / dataloader_len, accumulate_Discr_A_loss / dataloader_len, accumulate_Discr_B_loss / dataloader_len))
+    print('avg_total_GAN_loss: {:.4f} avg_GAN_loss: {:.4f} avg_CC_loss: {:.4f}'.format(
+        accumulate_total_GAN_loss / dataloader_len, accumulate_GAN_loss / dataloader_len, accumulate_CC_loss / dataloader_len))
+    print('avg_Discr_loss: {:.4f}'.format(accumulate_total_Discr_loss / dataloader_len))
 
 def test(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, device, args, epoch, epochs):
     GAN_A2B.eval(), GAN_B2A.eval()
