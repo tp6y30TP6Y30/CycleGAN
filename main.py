@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--epochs', default = 200, type = int,
                         help = "The total training epochs")
 
-    parser.add_argument('--batchsize', default = 10, type = int,
+    parser.add_argument('--batchsize', default = 1, type = int,
                         help = "The training batchsize")
 
     parser.add_argument('--lr', default = 2e-4, type = float,
@@ -81,7 +81,7 @@ def train(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device
         optimizer_Discr.step()
 
     print('avg_GAN_loss: {:.4f} avg_GAN_A2B_loss: {:.4f} avg_GAN_B2A_loss: {:.4f} avg_CC_A_loss: {:.4f} avg_CC_B_loss: {:.4f}'.format(accumulate_GAN_loss / dataloader_len, 
-        loss_GAN_A2B_data / dataloader_len, accumulate_GAN_B2A_loss / dataloader_len, accumulate_CC_A_loss / dataloader_len, accumulate_CC_B_loss / dataloader_len))
+        accumulate_GAN_A2B_loss / dataloader_len, accumulate_GAN_B2A_loss / dataloader_len, accumulate_CC_A_loss / dataloader_len, accumulate_CC_B_loss / dataloader_len))
     print('avg_Discr_loss: {:.4f} avg_Discr_A_loss: {:.4f} avg_Discr_B_loss: {:.4f}'.format(accumulate_Discr_loss / dataloader_len, accumulate_Discr_A_loss / dataloader_len, accumulate_Discr_B_loss / dataloader_len))
 
 def test(dataloader_A, dataloader_B, GAN_A2B, GAN_B2A, device, args, epoch, epochs):
@@ -122,8 +122,8 @@ def main():
     GAN_B2A = GANetwork().to(device).float()
     Discr_A = Discriminator().to(device).float()
     Discr_B = Discriminator().to(device).float()
-    optimizer_GAN = torch.optim.Adam(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.9))
-    optimizer_Discr = torch.optim.Adam(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.9))
+    optimizer_GAN = torch.optim.Adam(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999))
+    optimizer_Discr = torch.optim.Adam(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999))
     criterion = CycleGANLoss().to(device).float()
 
     # train

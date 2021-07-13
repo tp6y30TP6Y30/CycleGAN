@@ -27,7 +27,7 @@ class CycleGANData(Dataset):
     def __getitem__(self, index):
         img = Image.open(join(self.img_path, self.img_list[index])).convert('RGB')
         img = self.transform(img)
-        label = 0 if self.target == 'A' else 1
+        label = float(0 if self.target == 'A' else 1)
         return img, label
 
 if __name__ == '__main__':

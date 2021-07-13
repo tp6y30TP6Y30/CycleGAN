@@ -4,9 +4,9 @@ import torch.nn as nn
 class CycleGANLoss(nn.Module):
 	def __init__(self):
 		super(CycleGANLoss, self).__init__()
-		self.SmoothL1_loss = nn.SmoothL1Loss(reduction = 'mean')
-		self.CLS_loss = nn.CrossEntropyLoss(reduction = 'mean')
-		self.lambda_ = 1.
+		self.SmoothL1_loss = nn.L1Loss(reduction = 'mean')
+		self.CLS_loss = nn.BCEWithLogitsLoss(reduction = 'mean')
+		self.lambda_ = 10.
 		
 	def forward(self, mode, img_A, img_B, label_A, label_B, pred_fake_img_A, pred_real_img_A, pred_fake_img_B, pred_real_img_B, A2B2A, B2A2B):
 		if mode == 'GAN':

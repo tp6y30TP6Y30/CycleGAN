@@ -23,10 +23,10 @@ class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size = 3, stride = 2, padding = 1, activation = 'leakyrelu'):
         super(ConvBlock, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.norm = nn.BatchNorm2d(out_channels)
-        self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.1, True)
+        self.norm = nn.InstanceNorm2d(out_channels)
+        self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
         self.redu = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.attn = SEModule(out_channels, 4)
+        self.attn = SEModule(out_channels, 1)
 
     def forward(self, x):
         residual = x
@@ -54,10 +54,10 @@ class Encoder(nn.Module):
         return features
 
 class TransBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
+    def __init__(self, in_channels, out_channels, kernel_size = 3, stride = 2, padding = 1):
         super(TransBlock, self).__init__()
         self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.norm = nn.BatchNorm2d(out_channels)
+        self.norm = nn.InstanceNorm2d(out_channels)
         self.acti = nn.ReLU(True)
 
     def forward(self, x):
@@ -82,9 +82,9 @@ class Decoder(nn.Module):
     def get_upsample_block(self, in_channels, out_channels):
         if self.up_mode == 'up_sample':
             upsample_block = nn.Sequential(
-                                nn.Upsample(scale_factor = 2, mode = 'bilinear', align_corners = True),
+                                nn.Upsample(scale_factor = 2),
                                 nn.Conv2d(in_channels, out_channels, 3, 1, 1),
-                                nn.BatchNorm2d(out_channels),
+                                nn.InstanceNorm2d(out_channels),
                                 nn.ReLU(True)
                              )
         elif self.up_mode == 'transpose':

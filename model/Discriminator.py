@@ -23,10 +23,10 @@ class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size = 3, stride = 2, padding = 1, activation = 'leakyrelu'):
         super(ConvBlock, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.norm = nn.BatchNorm2d(out_channels)
-        self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.1, True)
+        self.norm = nn.InstanceNorm2d(out_channels)
+        self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
         self.redu = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.attn = SEModule(out_channels, 4)
+        self.attn = SEModule(out_channels, 1)
 
     def forward(self, x):
         residual = x
@@ -54,8 +54,9 @@ class Encoder(nn.Module):
         return feature
 
 class Classifier(nn.Module):
-    def __init__(self, in_channels, hidden, out_channels):
+    def __init__(self, in_channels, out_channels):
         super(Classifier, self).__init__()
+        hidden = in_channels // 2
         self.classify = nn.Sequential(
                             nn.Linear(in_channels, hidden),
                             nn.ReLU(True),
@@ -70,7 +71,7 @@ class Discriminator(nn.Module):
         super(Discriminator, self).__init__()
         channels = [in_channels, *[64 * 2**stage for stage in range(num_stages)]]
         self.encoder = Encoder(channels)
-        self.classifier = Classifier(in_channels = 1024, hidden = 512, out_channels = 2)
+        self.classifier = Classifier(in_channels = 512, out_channels = 1)
 
     def forward(self, x):
         feature = self.encoder(x)
