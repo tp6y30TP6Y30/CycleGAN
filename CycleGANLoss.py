@@ -6,6 +6,7 @@ class CycleGANLoss(nn.Module):
 		super(CycleGANLoss, self).__init__()
 		self.L1Loss = nn.L1Loss(reduction = 'mean')
 		self.MSELoss = nn.MSELoss(reduction = 'mean')
+		self.SmoothL1Loss = nn.SmoothL1Loss(reduction = 'mean')
 		self.CLS_loss = nn.CrossEntropyLoss(reduction = 'mean')
 		self.lambda_ = 10.
 		
