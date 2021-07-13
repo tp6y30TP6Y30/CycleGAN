@@ -47,7 +47,6 @@ class ConvBlock(nn.Module):
         self.downsample = nn.MaxPool2d(2) if downsample else nn.Identity()
 
     def forward(self, x):
-        residual = x
         x = self.conv(x)
         x = self.norm(x)
         x = self.acti(x)
