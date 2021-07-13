@@ -11,6 +11,7 @@ from CycleGANLoss import CycleGANLoss
 import os
 from os.path import join
 import torchvision.utils as utils
+from AdaBelief import AdaBelief
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -114,16 +115,16 @@ def main():
 
     test_dataset_A = CycleGANData(args.query, 'test', 'A')
     test_dataset_B = CycleGANData(args.query, 'test', 'B')
-    test_dataloader_A = DataLoader(test_dataset_A, batch_size = 1, shuffle = False, num_workers = 4, pin_memory = True, drop_last = True)
-    test_dataloader_B = DataLoader(test_dataset_B, batch_size = 1, shuffle = False, num_workers = 4, pin_memory = True, drop_last = True)
+    test_dataloader_A = DataLoader(test_dataset_A, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True, drop_last = True)
+    test_dataloader_B = DataLoader(test_dataset_B, batch_size = 1, shuffle = False, num_workers = 1, pin_memory = True, drop_last = True)
 
     # build model
     GAN_A2B = GANetwork().to(device).float()
     GAN_B2A = GANetwork().to(device).float()
     Discr_A = Discriminator().to(device).float()
     Discr_B = Discriminator().to(device).float()
-    optimizer_GAN = torch.optim.Adam(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999))
-    optimizer_Discr = torch.optim.Adam(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999))
+    optimizer_GAN = AdaBelief(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
+    optimizer_Discr = AdaBelief(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
     criterion = CycleGANLoss().to(device).float()
 
     # train

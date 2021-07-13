@@ -4,7 +4,7 @@ import torch.nn as nn
 class CycleGANLoss(nn.Module):
 	def __init__(self):
 		super(CycleGANLoss, self).__init__()
-		self.SmoothL1_loss = nn.L1Loss(reduction = 'mean')
+		self.L1Loss = nn.L1Loss(reduction = 'mean')
 		self.CLS_loss = nn.BCEWithLogitsLoss(reduction = 'mean')
 		self.lambda_ = 10.
 		
@@ -12,8 +12,8 @@ class CycleGANLoss(nn.Module):
 		if mode == 'GAN':
 			loss_GAN_A2B = self.CLS_loss(pred_fake_img_A, label_A)
 			loss_GAN_B2A = self.CLS_loss(pred_fake_img_B, label_B)
-			loss_CC_A = self.SmoothL1_loss(A2B2A, img_A)
-			loss_CC_B = self.SmoothL1_loss(B2A2B, img_B)
+			loss_CC_A = self.L1Loss(A2B2A, img_A)
+			loss_CC_B = self.L1Loss(B2A2B, img_B)
 			total_GAN_loss = loss_GAN_A2B + loss_GAN_B2A + self.lambda_ * (loss_CC_A + loss_CC_B)
 			loss_GAN_A2B_data, loss_GAN_B2A_data, loss_CC_A_data, loss_CC_B_data = loss_GAN_A2B.item(), loss_GAN_B2A.item(), loss_CC_A.item(), loss_CC_B.item()
 			return total_GAN_loss, loss_GAN_A2B_data, loss_GAN_B2A_data, loss_CC_A_data, loss_CC_B_data

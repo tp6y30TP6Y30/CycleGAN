@@ -26,7 +26,7 @@ class ConvBlock(nn.Module):
         self.norm = nn.InstanceNorm2d(out_channels)
         self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
         self.redu = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
-        self.attn = SEModule(out_channels, 1)
+        self.attn = SEModule(out_channels, 4)
 
     def forward(self, x):
         residual = x
@@ -67,11 +67,11 @@ class Classifier(nn.Module):
         return self.classify(feature)
 
 class Discriminator(nn.Module):
-    def __init__(self, in_channels = 3, num_stages = 5):
+    def __init__(self, in_channels = 3, num_stages = 6):
         super(Discriminator, self).__init__()
         channels = [in_channels, *[64 * 2**stage for stage in range(num_stages)]]
         self.encoder = Encoder(channels)
-        self.classifier = Classifier(in_channels = 512, out_channels = 1)
+        self.classifier = Classifier(in_channels = 2048, out_channels = 1)
 
     def forward(self, x):
         feature = self.encoder(x)
