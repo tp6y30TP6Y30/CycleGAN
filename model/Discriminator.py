@@ -71,7 +71,7 @@ class Classifier(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, in_channels = 3):
         super(Discriminator, self).__init__()
-        channels = [64, 128, 128, 256, 256, 512]
+        channels = [64, 128, 256, 512]
         self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
         self.encoder = Encoder(channels)
         self.classifier = Classifier(in_channels = channels[-1], out_channels = 2)

@@ -136,6 +136,8 @@ def main():
     Discr_B = Discriminator().to(device).float()
     optimizer_GAN = torch.optim.Adam(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999))
     optimizer_Discr = torch.optim.Adam(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999))
+    # optimizer_GAN = AdaBelief(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
+    # optimizer_Discr = AdaBelief(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
     criterion = CycleGANLoss().to(device).float()
 
     # train

@@ -75,7 +75,7 @@ class Encoder(nn.Module):
         return features
 
 class TransBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size = 4, stride = 2, padding = 1):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
         super(TransBlock, self).__init__()
         self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
         self.norm = nn.InstanceNorm2d(out_channels)
@@ -98,8 +98,10 @@ class Decoder(nn.Module):
         self.cat_convs = nn.ModuleList([
                             ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
                             ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
+                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
+                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
                             ConvBlock(256, 128, 1, 1, 0, activation = 'relu'),
-                            ConvBlock(256, 128, 1, 1, 0, activation = 'relu')
+                            ConvBlock(128, 64, 1, 1, 0, activation = 'relu')
                         ])
 
     def get_upsample_block(self, in_channels, out_channels):
@@ -109,7 +111,7 @@ class Decoder(nn.Module):
                                 ConvBlock(in_channels, out_channels, 3, 1, 1, activation = 'relu', downsample = False, attention = in_channels == out_channels)
                              )
         elif self.up_mode == 'transpose':
-            upsample_block = TransBlock(in_channels, out_channels)
+            upsample_block = TransBlock(in_channels, out_channels, 4, 2, 1)
         return upsample_block
 
     def forward(self, features):
@@ -124,11 +126,15 @@ class Decoder(nn.Module):
 class GANetwork(nn.Module):
     def __init__(self, in_channels = 3):
         super(GANetwork, self).__init__()
-        channels = [64, 128, 128, 256, 256, 512]
+        channels = [64, 128, 256, 256, 256, 256, 256]
         self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
         self.encoder = Encoder(channels)
         self.decoder = Decoder(channels[::-1])
-        self.leaf_conv = nn.Conv2d(channels[::-1][-1], in_channels, 3, 1, 1)
+        self.leaf_conv = ConvBlock(channels[::-1][-1], in_channels, 3, 1, 1, activation = 'relu')
+        self.combine = nn.Sequential(
+                            ConvBlock(in_channels * 2, in_channels * 2, 3, 1, 1, activation = 'relu'),
+                            nn.Conv2d(in_channels * 2, in_channels, 3, 1, 1)
+                       )
         weights_init(self)
         print('GAN params: ', self.get_params())
 
@@ -137,6 +143,7 @@ class GANetwork(nn.Module):
         features = self.encoder(x)
         features = self.decoder(features[::-1])
         fake_img = self.leaf_conv(features)
+        fake_img = self.combine(torch.cat([input, fake_img], dim = 1))
         assert(input.shape == fake_img.shape)
         return fake_img
 
