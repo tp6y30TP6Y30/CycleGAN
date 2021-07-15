@@ -8,12 +8,12 @@ class CycleGANLoss(nn.Module):
 		self.MSELoss = nn.MSELoss(reduction = 'mean')
 		self.SmoothL1Loss = nn.SmoothL1Loss(reduction = 'mean')
 		self.CLS_loss = nn.CrossEntropyLoss(reduction = 'mean')
-		self.lambda_ = 10.
+		self.lambda_ = 100.
 		
 	def forward(self, mode, pred_imgs, labels, fake_imgs, imgs):
 		if mode == 'GAN':
 			GAN_loss = self.CLS_loss(pred_imgs, labels)
-			CC_loss = self.lambda_ * self.L1Loss(fake_imgs, imgs)
+			CC_loss = self.lambda_ * self.SmoothL1Loss(fake_imgs, imgs)
 			total_GAN_loss = GAN_loss + CC_loss
 			return total_GAN_loss, GAN_loss.item(), CC_loss.item()
 
