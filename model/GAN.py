@@ -103,7 +103,7 @@ class TransBlock(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self):
+    def __init__(self, up_mode = 'up_sample'):
         super(Decoder, self).__init__()
         self.convs = nn.Sequential(
                             ResidualBlock(256, 3, 1),
@@ -112,13 +112,19 @@ class Decoder(nn.Module):
                             ResidualBlock(256, 3, 1),
                        )
         self.deconvs = nn.Sequential(
-                            self.get_upsample_block(256, 128, 3, 2, None, 1),
-                            self.get_upsample_block(128, 64, 3, 2, None, 1),
+                            self.get_upsample_block(up_mode, 256, 128, 3, 2, None, 1),
+                            self.get_upsample_block(up_mode, 128, 64, 3, 2, None, 1),
                             ConvBlock(64, 3, 7, 1)
                        )
 
-    def get_upsample_block(self, in_channels, out_channels, kernel_size, stride, padding, output_padding):
-        upsample_block = TransBlock(in_channels, out_channels, kernel_size, stride, padding, output_padding)
+    def get_upsample_block(self, up_mode, in_channels, out_channels, kernel_size, stride, padding = None, output_padding = 0):
+        if up_mode == 'up_sample':
+            upsample_block = nn.Sequential(
+                                nn.Upsample(scale_factor = 2),
+                                ConvBlock(in_channels, out_channels, kernel_size, 1, padding)
+                             )
+        elif up_mode == 'transpose':
+            upsample_block = TransBlock(in_channels, out_channels, kernel_size, stride, padding, output_padding)
         return upsample_block
 
     def forward(self, x):
