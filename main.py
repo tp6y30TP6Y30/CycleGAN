@@ -136,6 +136,8 @@ def main():
     Discr_B = Discriminator().to(device).float()
     optimizer_GAN = torch.optim.Adam(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999))
     optimizer_Discr = torch.optim.Adam(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999))
+    lr_scheduler_GAN = torch.optim.lr_scheduler.StepLR(optimizer_GAN, step_size = 100, gamma = 0.1)
+    lr_scheduler_Discr = torch.optim.lr_scheduler.StepLR(optimizer_Discr, step_size = 100, gamma = 0.1)
     # optimizer_GAN = AdaBelief(list(list(GAN_A2B.parameters()) + list(GAN_B2A.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
     # optimizer_Discr = AdaBelief(list(list(Discr_A.parameters()) + list(Discr_B.parameters())), lr = args.lr, betas = (0.5, 0.999), eps = 1e-12)
     criterion = CycleGANLoss().to(device).float()
@@ -144,6 +146,8 @@ def main():
     for epoch in range(1, args.epochs + 1):
         train(train_dataloader_A, train_dataloader_B, GAN_A2B, GAN_B2A, Discr_A, Discr_B, device, optimizer_GAN, optimizer_Discr, criterion, args, epoch, args.epochs)
         test(test_dataloader_A, test_dataloader_B, GAN_A2B, GAN_B2A, device, args, epoch, args.epochs)
+        lr_scheduler_GAN.step()
+        lr_scheduler_Discr.step()
 
 if __name__ == '__main__':
     main()

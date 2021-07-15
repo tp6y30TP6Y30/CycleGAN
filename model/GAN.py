@@ -39,45 +39,60 @@ class SEModule(nn.Module):
         return original * x
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, activation = 'leakyrelu', downsample = False, attention = False):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding = None, padding_mode = 'reflect', norm = True, attention = False):
         super(ConvBlock, self).__init__()
-        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2)
-        self.norm = nn.InstanceNorm2d(out_channels)
-        self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
-        self.downsample = nn.MaxPool2d(2) if downsample else nn.Identity()
-        self.attention = attention
-        if self.attention:
-            self.attn = SEModule(out_channels, 4)
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2, padding_mode = padding_mode)
+        self.norm = nn.InstanceNorm2d(out_channels) if norm else nn.Identity()
+        self.acti = nn.ReLU(True)
+        self.attn = SEModule(out_channels, 4) if attention else None
 
     def forward(self, x):
         residual = x
         x = self.conv(x)
         x = self.norm(x)
         x = self.acti(x)
-        if self.attention:
+        if self.attn:
             x = residual + self.attn(x)
-        x = self.downsample(x)
+        return x
+
+class ResidualBlock(nn.Module):
+    def __init__(self, channels, kernel_size, stride, padding = None, padding_mode = 'reflect', attention = False):
+        super(ResidualBlock, self).__init__()
+        self.convs = nn.Sequential(
+                        nn.Conv2d(channels, channels, kernel_size, stride, padding = padding if padding else kernel_size // 2, padding_mode = padding_mode),
+                        nn.ReLU(True),
+                        nn.Conv2d(channels, channels, kernel_size, stride, padding = padding if padding else kernel_size // 2, padding_mode = padding_mode),
+                     )
+        self.acti = nn.ReLU(True)
+
+    def forward(self, x):
+        residual = x
+        x = self.convs(x) + residual
+        x = self.acti(x)
         return x
 
 class Encoder(nn.Module):
-    def __init__(self, channels):
+    def __init__(self):
         super(Encoder, self).__init__()
-        self.convs = nn.ModuleList([
-                        ConvBlock(channels[i], channels[i + 1], 3, 1, 1, downsample = True, attention = channels[i] == channels[i + 1])
-                        for i in range(len(channels) - 1)
-                     ])
+        self.convs = nn.Sequential(
+                        ConvBlock(3, 64, 7, 1),
+                        ConvBlock(64, 128, 3, 2),
+                        ConvBlock(128, 256, 3, 2),
+                        ResidualBlock(256, 3, 1),
+                        ResidualBlock(256, 3, 1),
+                        ResidualBlock(256, 3, 1),
+                        ResidualBlock(256, 3, 1),
+                        ResidualBlock(256, 3, 1),
+                     )
 
     def forward(self, x):
-        features = []
-        for conv in self.convs:
-            x = conv(x)
-            features.append(x)
-        return features
+        feature = self.convs(x)
+        return feature
 
 class TransBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding = None, output_padding = 0):
         super(TransBlock, self).__init__()
-        self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
+        self.conv = nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2, output_padding = output_padding)
         self.norm = nn.InstanceNorm2d(out_channels)
         self.acti = nn.ReLU(True)
 
@@ -88,62 +103,40 @@ class TransBlock(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, channels, up_mode = 'up_sample'):
+    def __init__(self):
         super(Decoder, self).__init__()
-        self.up_mode = up_mode
-        self.deconvs = nn.ModuleList([
-                            self.get_upsample_block(channels[i], channels[i + 1])
-                            for i in range(len(channels) - 1)
-                       ])
-        self.cat_convs = nn.ModuleList([
-                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
-                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
-                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
-                            ConvBlock(512, 256, 1, 1, 0, activation = 'relu'),
-                            ConvBlock(256, 128, 1, 1, 0, activation = 'relu'),
-                            ConvBlock(128, 64, 1, 1, 0, activation = 'relu')
-                        ])
+        self.convs = nn.Sequential(
+                            ResidualBlock(256, 3, 1),
+                            ResidualBlock(256, 3, 1),
+                            ResidualBlock(256, 3, 1),
+                            ResidualBlock(256, 3, 1),
+                       )
+        self.deconvs = nn.Sequential(
+                            self.get_upsample_block(256, 128, 3, 2, None, 1),
+                            self.get_upsample_block(128, 64, 3, 2, None, 1),
+                            ConvBlock(64, 3, 7, 1)
+                       )
 
-    def get_upsample_block(self, in_channels, out_channels):
-        if self.up_mode == 'up_sample':
-            upsample_block = nn.Sequential(
-                                nn.Upsample(scale_factor = 2),
-                                ConvBlock(in_channels, out_channels, 3, 1, 1, activation = 'relu', downsample = False, attention = in_channels == out_channels)
-                             )
-        elif self.up_mode == 'transpose':
-            upsample_block = TransBlock(in_channels, out_channels, 4, 2, 1)
+    def get_upsample_block(self, in_channels, out_channels, kernel_size, stride, padding, output_padding):
+        upsample_block = TransBlock(in_channels, out_channels, kernel_size, stride, padding, output_padding)
         return upsample_block
 
-    def forward(self, features):
-        output = features[0]
-        for i in range(len(self.deconvs)):
-            output = self.deconvs[i](output)
-            if i == len(self.deconvs) - 1: break
-            output = torch.cat([output, features[i + 1]], dim = 1)
-            output = self.cat_convs[i](output)
-        return output
+    def forward(self, x):
+        x = self.convs(x)
+        x = self.deconvs(x)
+        return x
 
 class GANetwork(nn.Module):
-    def __init__(self, in_channels = 3):
+    def __init__(self):
         super(GANetwork, self).__init__()
-        channels = [64, 128, 256, 256, 256, 256, 256]
-        self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
-        self.encoder = Encoder(channels)
-        self.decoder = Decoder(channels[::-1])
-        self.leaf_conv = ConvBlock(channels[::-1][-1], in_channels, 3, 1, 1, activation = 'relu')
-        self.combine = nn.Sequential(
-                            ConvBlock(in_channels * 2, in_channels * 2, 3, 1, 1, activation = 'relu'),
-                            nn.Conv2d(in_channels * 2, in_channels, 3, 1, 1)
-                       )
+        self.encoder = Encoder()
+        self.decoder = Decoder()
         weights_init(self)
         print('GAN params: ', self.get_params())
 
     def forward(self, input):
-        x = self.stem_conv(input)
-        features = self.encoder(x)
-        features = self.decoder(features[::-1])
-        fake_img = self.leaf_conv(features)
-        fake_img = self.combine(torch.cat([input, fake_img], dim = 1))
+        feature = self.encoder(input)
+        fake_img = self.decoder(feature)
         assert(input.shape == fake_img.shape)
         return fake_img
 

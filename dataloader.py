@@ -13,6 +13,7 @@ class CycleGANData(Dataset):
     def __init__(self, query, mode, target):
         super(CycleGANData, self).__init__()
         self.target = target
+        self.mode = mode
         self.img_path = join('./datasets/', query, mode + target)
         self.img_list = listdir(self.img_path)
         self.transform = transforms.Compose([
@@ -21,6 +22,7 @@ class CycleGANData(Dataset):
                             # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
                             # transforms.Normalize([0.5], [0.5]),
                          ])
+        self.random_flip = transforms.RandomHorizontalFlip(p = 0.5)
 
     def __len__(self):
         return len(self.img_list)
@@ -28,6 +30,7 @@ class CycleGANData(Dataset):
     def __getitem__(self, index):
         img = Image.open(join(self.img_path, self.img_list[index])).convert('RGB')
         img = self.transform(img)
+        if self.mode == 'train': img = self.random_flip(img)
         label = 0 if self.target == 'A' else 1
         return img, label
 

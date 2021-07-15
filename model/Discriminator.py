@@ -20,39 +20,35 @@ class SEModule(nn.Module):
         return original * x
 
 class ConvBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, activation = 'leakyrelu', downsample = False, attention = False):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, norm = True, attention = False):
         super(ConvBlock, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding = padding if padding else kernel_size // 2)
-        self.norm = nn.InstanceNorm2d(out_channels)
-        self.acti = nn.ReLU(True) if activation == 'relu' else nn.LeakyReLU(0.2, True)
-        self.downsample = nn.MaxPool2d(2) if downsample else nn.Identity()
-        self.attention = attention
-        if self.attention:
-            self.attn = SEModule(out_channels, 4)
+        self.norm = nn.InstanceNorm2d(out_channels) if norm else nn.Identity()
+        self.acti = nn.LeakyReLU(0.2, True)
+        self.attn = SEModule(out_channels, 4) if attention else None
 
     def forward(self, x):
         residual = x
         x = self.conv(x)
         x = self.norm(x)
         x = self.acti(x)
-        if self.attention:
+        if self.attn:
             x = residual + self.attn(x)
-        x = self.downsample(x)
         return x
 
 class Encoder(nn.Module):
     def __init__(self, channels):
         super(Encoder, self).__init__()
         self.convs = nn.ModuleList([
-                        ConvBlock(channels[i], channels[i + 1], 3, 1, 1, downsample = True, attention = channels[i] == channels[i + 1])
+                        ConvBlock(channels[i], channels[i + 1], 4, 2, 1, norm = i)
                         for i in range(len(channels) - 1)
                      ])
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.compress = nn.AdaptiveAvgPool2d(1)
 
     def forward(self, x):
         for conv in self.convs:
             x = conv(x)
-        feature = self.avg_pool(x).squeeze()
+        feature = self.compress(x).squeeze()
         return feature
 
 class Classifier(nn.Module):
@@ -60,9 +56,7 @@ class Classifier(nn.Module):
         super(Classifier, self).__init__()
         hidden = in_channels // 2
         self.classify = nn.Sequential(
-                            nn.Linear(in_channels, hidden),
-                            nn.ReLU(True),
-                            nn.Linear(hidden, out_channels)
+                            nn.Linear(in_channels, out_channels)
                         )
 
     def forward(self, feature):
@@ -71,16 +65,14 @@ class Classifier(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self, in_channels = 3):
         super(Discriminator, self).__init__()
-        channels = [64, 128, 256, 512]
-        self.stem_conv = ConvBlock(in_channels, channels[0], 3, 1, 1)
+        channels = [3, 64, 128, 256, 512]
         self.encoder = Encoder(channels)
         self.classifier = Classifier(in_channels = channels[-1], out_channels = 2)
         weights_init(self)
         print('Discr params: ', self.get_params())
 
     def forward(self, input):
-        x = self.stem_conv(input)
-        feature = self.encoder(x)
+        feature = self.encoder(input)
         predict = self.classifier(feature)
         return predict
 
