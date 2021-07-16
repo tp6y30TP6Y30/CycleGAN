@@ -24,6 +24,13 @@ def generateGIFs(query, target_img_name, save_folder):
 	target_gif_name = target_img_name.replace('.jpg', '.gif')
 	imageio.mimsave(os.path.join(save_path, target_gif_name), images, duration = 0.1)
 	print('===== {} saved ====='.format(target_gif_name))
+	print()
+
+def refresh_allGIFs(query, save_folder):
+	target_img_names = [img_name.replace('.gif', '.jpg') for img_name in os.listdir(os.path.join(save_folder, query))]
+	for target_img_name in target_img_names:
+		generateGIFs(query, target_img_name, save_folder)
 
 if __name__ == '__main__':
-	generateGIFs(query = 'horse2zebra', target_img_name = 'fake_B11.jpg', save_folder = 'GIFs/')
+	# generateGIFs(query = 'horse2zebra', target_img_name = 'fake_A3.jpg', save_folder = 'GIFs/')
+	refresh_allGIFs(query = 'horse2zebra', save_folder = 'GIFs/')
