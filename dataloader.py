@@ -22,7 +22,10 @@ class CycleGANData(Dataset):
                             # transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
                             # transforms.Normalize([0.5], [0.5]),
                          ])
-        self.random_flip = transforms.RandomHorizontalFlip(p = 0.5)
+        self.augment = transforms.Compose([
+                            transforms.RandomHorizontalFlip(p = 0.5),
+                            transforms.ColorJitter()
+                       ])
 
     def __len__(self):
         return len(self.img_list)
@@ -30,7 +33,7 @@ class CycleGANData(Dataset):
     def __getitem__(self, index):
         img = Image.open(join(self.img_path, self.img_list[index])).convert('RGB')
         img = self.transform(img)
-        if self.mode == 'train': img = self.random_flip(img)
+        if self.mode == 'train': img = self.augment(img)
         label = 0 if self.target == 'A' else 1
         return img, label
 
