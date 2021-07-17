@@ -7,7 +7,7 @@ import os.path
 from tqdm import tqdm
 import time
 
-def generateGIFs(query, target_img_name, save_folder, interval = 10):
+def generateGIFs(query, target_img_name, save_folder, interval = 20):
 	print('Saving GIF...')
 	print('query: ', query)
 	print('img_name: ', target_img_name)
